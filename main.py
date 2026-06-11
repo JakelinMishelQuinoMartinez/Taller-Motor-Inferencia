@@ -155,7 +155,6 @@ PREGUNTAS = {
     "no_enciende":              "¿El equipo NO enciende (sin luces, sin sonido)?",
     "sin_luces":                "¿No hay ninguna luz LED encendida?",
     "sin_sonido":               "¿No se escucha ningún sonido al encender?",
-    "enciende":                 "¿El equipo SÍ enciende (hay luces y/o sonido)?",
     "pitidos_arranque":         "¿Se escuchan pitidos (beeps) al encender?",
     "sin_video":                "¿La pantalla no muestra absolutamente nada?",
     "pantalla_negra":           "¿La pantalla queda en negro (sin pitidos)?",
@@ -169,6 +168,7 @@ PREGUNTAS = {
 }
 
 def consultar():
+    base_de_hechos.clear() 
     print()
     print('=' * 55)
     print('  SISTEMA EXPERTO: Diagnóstico de Computador')
@@ -176,7 +176,24 @@ def consultar():
     print('=' * 55)
     print()
 
+    resp_encendido = input("  ¿El equipo enciende (hay luces o sonido)? [s/n]: ").strip().lower()
+    if resp_encendido == 's':
+        base_de_hechos.add('enciende')
+    else:
+        base_de_hechos.add('no_enciende')
+
     for sintoma, pregunta in PREGUNTAS.items():
+
+        if 'no_enciende' in base_de_hechos and sintoma in [
+            "pitidos_arranque", "sin_video", "pantalla_negra", "sin_pitidos", 
+            "inicia_lento", "disco_al_100", "ventilador_siempre_activo", 
+            "pantalla_azul_frecuente", "se_apaga_solo", "calor_excesivo"
+        ]:
+            continue
+            
+        if 'enciende' in base_de_hechos and sintoma in ["sin_luces", "sin_sonido"]:
+            continue
+
         resp = input(f'  {pregunta} [s/n]: ').strip().lower()
         if resp == 's':
             base_de_hechos.add(sintoma)
