@@ -60,9 +60,28 @@ base_de_conocimiento = [
         "conclusion": "Limpiar ventiladores y reaplicar pasta térmica",
         "confianza": 0.90
     },
+    {
+        "id": "R08",
+        "descripcion": "Pila de la BIOS agotada",
+        "condiciones": ["enciende", "hora_desconfigurada", "error_cmos"],
+        "conclusion": "Reemplazar la pila CR2032 de la placa madre",
+        "confianza": 0.95
+    },
+    {
+        "id": "R09",
+        "descripcion": "Problema de conectividad Wi-Fi o Red",
+        "condiciones": ["enciende", "sin_internet", "icono_red_alerta"],
+        "conclusion": "Reiniciar el router, reinstalar controladores de red o revisar tarjeta Wi-Fi",
+        "confianza": 0.82
+    },
+    {
+        "id": "R10",
+        "descripcion": "Batería de laptop degradada o dañada",
+        "condiciones": ["enciende", "solo_funciona_enchufado", "descarga_rapida"],
+        "conclusion": "Calibrar la batería mediante el sistema o solicitar un reemplazo físico",
+        "confianza": 0.89
+    }
 ]
-
-
 
 # ──────────────────────────────────────────────────────────────
 # COMPONENTE 2: BASE DE HECHOS (Working Memory)
@@ -97,19 +116,14 @@ def resolver_conflictos(conflict_set):
     Estrategia de resolución de conflictos: mayor confianza.
     Si hay empate, preferir la regla con más condiciones (más específica).
     """
-    if not conflict_set:
-        return None
-    return max(
-        conflict_set,
-        key=lambda r: (r['confianza'], len(r['condiciones']))
+    return sorted(
+        conflict_set, 
+        key=lambda r: (r['confianza'], len(r['condiciones'])), 
+        reverse=True
     )
 
 
 def inferir(base_conocimiento, hechos):
-    """
-    Motor de inferencia principal.
-    Ejecuta el ciclo de equiparación → resolución → ejecución.
-    """
     print()
     print('━' * 55)
     print('  MOTOR DE INFERENCIA INICIADO')
@@ -121,28 +135,28 @@ def inferir(base_conocimiento, hechos):
 
     if not conflict_set:
         print('  ⚠ No se encontraron reglas aplicables.')
-        print('  Considera agregar más síntomas o revisar la base de conocimiento.')
         return
 
-    print(f'  Reglas que aplican (conflict set): {[r["id"] for r in conflict_set]}')
-    print()
+    reglas_ordenadas = resolver_conflictos(conflict_set)
+    mejor_regla = reglas_ordenadas[0]
 
-    regla = resolver_conflictos(conflict_set)
-
-    print('  DIAGNÓSTICO')
+    print('  DIAGNÓSTICO PRINCIPAL')
     print('  ───────────────────────────────────────────────────')
-    print(f'  Regla aplicada: {regla["id"]} — {regla["descripcion"]}')
-    print(f'  Recomendación:  {regla["conclusion"]}')
-    print(f'  Confianza:      {regla["confianza"] * 100:.0f}%')
+    print(f'  Regla aplicada: {mejor_regla["id"]} — {mejor_regla["descripcion"]}')
+    print(f'  Recomendación:  {mejor_regla["conclusion"]}')
+    print(f'  Confianza:      {mejor_regla["confianza"] * 100:.0f}%')
     print()
+
+    if len(reglas_ordenadas) > 1:
+        print('  RANKING DE OTRAS POSIBILIDADES:')
+        for r in reglas_ordenadas[1:]:
+            print(f'  - {r["id"]}: {r["descripcion"]} ({r["confianza"]*100:.0f}% confianza)')
 
     # COMPONENTE 4: INTERFAZ DE EXPLICACIÓN
+    print()
     print('  TRAZABILIDAD DEL RAZONAMIENTO')
     print('  ───────────────────────────────────────────────────')
-    print(f'  Síntomas que activaron la regla: {regla["condiciones"]}')
-    if len(conflict_set) > 1:
-        descartadas = [r['id'] for r in conflict_set if r['id'] != regla['id']]
-        print(f'  Reglas descartadas por menor confianza: {descartadas}')
+    print(f'  Síntomas que activaron la regla principal: {mejor_regla["condiciones"]}')
     print('━' * 55)
 
 
@@ -164,15 +178,22 @@ PREGUNTAS = {
     "ventilador_siempre_activo":"¿El ventilador está siempre a máxima velocidad?",
     "pantalla_azul_frecuente":  "¿Aparece pantalla azul (BSOD) con frecuencia?",
     "se_apaga_solo":            "¿El equipo se apaga solo sin advertencia?",
-    "calor_excesivo":           "¿El chasis está muy caliente al tacto?"
+    "calor_excesivo":           "¿El chasis está muy caliente al tacto?",
+    # Nuevas preguntas (Nivel 1)
+    "hora_desconfigurada":      "¿La hora del reloj de Windows/Linux se desconfigura al apagar la PC?",
+    "error_cmos":               "¿Aparece un mensaje de 'CMOS Checksum Error' al encender la máquina?",
+    "sin_internet":             "¿El equipo se encuentra completamente sin acceso a internet?",
+    "icono_red_alerta":         "¿El ícono de red muestra un triángulo amarillo o advertencia?",
+    "solo_funciona_enchufado":  "¿La computadora portátil se apaga de inmediato al desconectar el cargador?",
+    "descarga_rapida":          "¿La batería pasa de estar cargada a 0% en pocos minutos?"
 }
 
 def consultar():
     base_de_hechos.clear() 
     print()
     print('=' * 55)
-    print('  SISTEMA EXPERTO: Diagnóstico de Computador')
-    print('  Responde s (sí) o n (no) a cada pregunta')
+    print('   SISTEMA EXPERTO: Diagnóstico de Computador')
+    print('   Responde s (sí) o n (no) a cada pregunta')
     print('=' * 55)
     print()
 
@@ -184,17 +205,13 @@ def consultar():
 
     for sintoma, pregunta in PREGUNTAS.items():
 
-        if 'no_enciende' in base_de_hechos and sintoma in [
-            "pitidos_arranque", "sin_video", "pantalla_negra", "sin_pitidos", 
-            "inicia_lento", "disco_al_100", "ventilador_siempre_activo", 
-            "pantalla_azul_frecuente", "se_apaga_solo", "calor_excesivo"
-        ]:
+        if 'no_enciende' in base_de_hechos and sintoma not in ["sin_luces", "sin_sonido"]:
             continue
             
         if 'enciende' in base_de_hechos and sintoma in ["sin_luces", "sin_sonido"]:
             continue
 
-        resp = input(f'  {pregunta} [s/n]: ').strip().lower()
+        resp = input(f'   {pregunta} [s/n]: ').strip().lower()
         if resp == 's':
             base_de_hechos.add(sintoma)
 
